@@ -15,4 +15,33 @@ services:
     container_name: livetiming-backend
     ports:
       - "8000:8000"
+    volumes:
+      - ./:/srv/app:ro
+    environment:
+      - WATCH_ROOT=/srv/app
+    restart: unless-stopped
+
+  frontend:
+    image: nginx:alpine
+    container_name: livestream-frontend
+    ports:
+      - "3000:80"
+    volumes:
+      - ./:/usr/share/nginx/html:ro
+    restart: unless-stopped
+  
+  # Transcoder: reads RTMP from rtmp-server and produces multi-bitrate HLS with program_date_time
+  transcoder:
+    image: jrottenberg/ffmpeg:4.4-alpine
+    container_name: livetiming-transcoder
+    depends_on:
+      - rtmp-server
+    volumes:
+      - ./hls:/var/www/hls
+      - ./scripts:/scripts:ro
+    entrypoint: ["/bin/sh"]
+    command: ["/scripts/run.sh"]
+    environment:
+      - INPUT_URL=rtmp://rtmp-server/live/test
+      - OUTPUT_DIR=/var/www/hls
     restart: unless-stopped

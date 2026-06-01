@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Score Admin Console</title>
+    <style>
+        :root {
+            --bg: #0b1020;
+            --panel: #121a30;
+            --text: #f5f7ff;
+            --muted: #9aa6c5;
+            --accent: #2f7cff;
+            --accent-strong: #1557d6;
+            --danger: #de3d3d;
+            --ok: #20b15a;
+            --border: #243258;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text);
+            background: radial-gradient(circle at top left, #1c2b57 0%, var(--bg) 45%, #070b16 100%);
+            padding: 24px;
+        }
+
+        .app {
+            max-width: 760px;
+            margin: 0 auto;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 26px;
+            margin-bottom: 6px;
+        }
+
+        .subtitle {
+            color: var(--muted);
+            margin-bottom: 18px;
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+            background: #0f1730;
+            color: var(--muted);
+        }
+
+        .status.ok {
+            border-color: rgba(32, 177, 90, 0.5);
+            color: #b9f1d0;
+            background: rgba(32, 177, 90, 0.12);
+        }
+
+        .status.error {
+            border-color: rgba(222, 61, 61, 0.5);
+            color: #ffd0d0;
+            background: rgba(222, 61, 61, 0.12);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 16px;
+            align-items: end;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .field.full {
+            grid-column: 1 / -1;
+        }
+
+        /* Score block styles */
+        .score-block {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .score-input {
+            width: 110px;
+            font-size: 36px;
+            text-align: center;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: #0b1230;
+            color: var(--text);
+        }
+
+        .vs-label {
+            font-weight: 800;
+            font-size: 20px;
+            color: var(--muted);
+            min-width: 36px;
+            text-align: center;
+        }
+
+        label {
+            font-weight: 600;
+            font-size: 14px;
+            color: #d8e0ff;
+        }
+
+        input {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #0f1730;
+            color: var(--text);
+            padding: 10px 12px;
+            font-size: 15px;
+        }
+
+        input:focus {
+            outline: 2px solid rgba(47, 124, 255, 0.45);
+            border-color: var(--accent);
+        }
+
+        .scoreline {
+            display: flex;
+            align-items: end;
+            gap: 10px;
+        }
+
+        .scoreline .field {
+            flex: 1;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+            align-items: center;
+        }
+
+        button {
+            border: none;
+            border-radius: 10px;
+            padding: 10px 14px;
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+            background: var(--accent);
+            transition: transform 0.08s ease, box-shadow 0.12s ease;
+        }
+
+        button:hover {
+            background: var(--accent-strong);
+        }
+
+        button.secondary {
+            background: #2a355a;
+        }
+
+        button.goal {
+            background: #20b15a;
+        }
+
+        button.goal.secondary {
+            background: #1a8f46;
+        }
+
+        .hint {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.4;
+        }
+
+        @media (max-width: 720px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="app">
+        <h1>Score Admin Console</h1>
+        <p class="subtitle">Admin console — use this page to send live score updates. The viewer page is read-only.</p>
+
+        <div id="status" class="status">Ready.</div>
+
+        <div class="grid">
+            <div class="field">
+                <label for="teamA">Team A name</label>
+                <input id="teamA" value="Team Red" />
+            </div>
+            <div class="field">
+                <label for="teamB">Team B name</label>
+                <input id="teamB" value="Team Blue" />
+            </div>
+
+            <div class="field full">
+                <label>Score</label>
+                <div class="score-block" style="margin-top:8px;">
+                    <input id="scoreA" class="score-input" type="number" min="0" value="0" aria-label="Team A goals" />
+                    <div class="vs-label">:</div>
+                    <input id="scoreB" class="score-input" type="number" min="0" value="0" aria-label="Team B goals" />
+                    <div style="width:18px"></div>
+                    <div style="display:flex;flex-direction:column;min-width:160px;">
+                        <label for="delay">Delay (s)</label>
+                        <input id="delay" type="number" min="0" value="10" style="padding:8px;border-radius:10px;border:1px solid var(--border);background:#0b1230;color:var(--text);" />
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="actions">
+            <button id="goalA" class="goal">Goal Team A</button>
+            <button id="goalB" class="goal">Goal Team B</button>
+            <div style="flex:1"></div>
+            <button id="send" class="secondary">Send Current Score</button>
+            <button id="reset" class="secondary">Reset 0-0</button>
+        </div>
+
+        <p class="hint">
+            This page sends POST requests to /admin/score on port 8000. The viewer page receives updates over WebSocket.
+        </p>
+    </main>
+
+    <script>
+        const statusEl = document.getElementById("status");
+        const teamAEl = document.getElementById("teamA");
+        const teamBEl = document.getElementById("teamB");
+        const scoreAEl = document.getElementById("scoreA");
+        const scoreBEl = document.getElementById("scoreB");
+        const delayEl = document.getElementById("delay");
+
+        const host = window.location.hostname || "localhost";
+        const protocol = window.location.protocol === "https:" ? "https:" : "http:";
+        const apiBase = `${protocol}//${host}:8000`;
+        let lastSentScore = null;
+
+        // Restore persisted admin state so refresh doesn't lose current inputs
+        try {
+            const raw = localStorage.getItem('livetiming_admin_state');
+            if (raw) {
+                const s = JSON.parse(raw);
+                if (s.teamA) teamAEl.value = s.teamA;
+                if (s.teamB) teamBEl.value = s.teamB;
+                if (typeof s.scoreA !== 'undefined') scoreAEl.value = s.scoreA;
+                if (typeof s.scoreB !== 'undefined') scoreBEl.value = s.scoreB;
+                if (typeof s.delay !== 'undefined') delayEl.value = s.delay;
+                if (s.lastSentScore) lastSentScore = s.lastSentScore;
+            }
+        } catch (e) { console.log(e); }
+
+        function saveAdminState() {
+            try {
+                const s = {
+                    teamA: teamAEl.value,
+                    teamB: teamBEl.value,
+                    scoreA: Number(scoreAEl.value || 0),
+                    scoreB: Number(scoreBEl.value || 0),
+                    delay: Number(delayEl.value || 0),
+                    lastSentScore: lastSentScore,
+                };
+                localStorage.setItem('livetiming_admin_state', JSON.stringify(s));
+            } catch (e) { }
+        }
+
+        [teamAEl, teamBEl, scoreAEl, scoreBEl, delayEl].forEach(el => el.addEventListener('input', saveAdminState));
+
+        function setStatus(message, type = "") {
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`.trim();
+        }
+
+        function currentScore() {
+            const scoreA = Number(scoreAEl.value || 0);
+            const scoreB = Number(scoreBEl.value || 0);
+            return `${scoreA}-${scoreB}`;
+        }
+
+        async function pushScore(scoringTeamName, action = "goal") {
+            const payload = {
+                team: scoringTeamName,
+                score: currentScore(),
+                delay: Number(delayEl.value || 0),
+                action,
+            };
+            try {
+                setStatus("Sending update...");
+
+                const res = await fetch(`${apiBase}/admin/score`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+
+                if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(`HTTP ${res.status}: ${text}`);
+                }
+
+                lastSentScore = payload.score;
+                saveAdminState();
+                setStatus(`Update sent: ${payload.team} | ${payload.score} | delay ${payload.delay}s`, "ok");
+            } catch (err) {
+                setStatus(`Failed to send update. ${err.message}`, "error");
+            }
+        }
+
+        document.getElementById("goalA").addEventListener("click", async () => {
+            scoreAEl.value = Number(scoreAEl.value || 0) + 1;
+            await pushScore(teamAEl.value || "Team A", "goal");
+        });
+
+        document.getElementById("goalB").addEventListener("click", async () => {
+            scoreBEl.value = Number(scoreBEl.value || 0) + 1;
+            await pushScore(teamBEl.value || "Team B", "goal");
+        });
+
+        // Send current score, but skip if identical to last sent score
+        document.getElementById("send").addEventListener("click", async () => {
+            const current = currentScore();
+            if (lastSentScore !== null && current === lastSentScore) {
+                setStatus("Score unchanged — not sent", "error");
+                return;
+            }
+            await pushScore("Manual update", "manual");
+        });
+
+        document.getElementById("reset").addEventListener("click", async () => {
+            scoreAEl.value = 0;
+            scoreBEl.value = 0;
+            await pushScore("Reset", "reset");
+        });
+
+        // Live-reload socket: reload admin UI when files change
+        try {
+            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const reloadWs = new WebSocket(`${wsProtocol}//${host}:8000/ws/reload`);
+            const applyStylesFromHTML = async (htmlText) => {
+                try {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlText, 'text/html');
+                    const newStyles = Array.from(doc.querySelectorAll('style'));
+                    const currStyles = Array.from(document.querySelectorAll('style'));
+                    if (newStyles.length > 0) {
+                        if (currStyles.length === newStyles.length) {
+                            for (let i = 0; i < newStyles.length; i++) currStyles[i].textContent = newStyles[i].textContent;
+                        } else {
+                            currStyles.forEach(s => s.remove());
+                            const head = document.head || document.getElementsByTagName('head')[0];
+                            newStyles.forEach(ns => {
+                                const el = document.createElement('style'); el.textContent = ns.textContent; head.appendChild(el);
+                            });
+                        }
+                        return true;
+                    }
+                } catch (e) { console.log(e); }
+                return false;
+            };
+
+            reloadWs.onmessage = async (ev) => {
+                try {
+                    const d = JSON.parse(ev.data);
+                    if (d && d.type === 'reload') {
+                        console.log('Reload event received for admin —', d.path || 'unknown');
+                        if (d.path && d.path.endsWith('.css')) {
+                            const cssUrl = `/${d.path}`;
+                            try {
+                                const r = await fetch(cssUrl);
+                                if (r.ok) {
+                                    const txt = await r.text();
+                                    const el = document.createElement('style'); el.textContent = txt; document.head.appendChild(el);
+                                    console.log('Applied CSS update for admin');
+                                    return;
+                                }
+                            } catch (e) { }
+                        }
+
+                        if (d.path && d.path.endsWith('admin.html')) {
+                            try {
+                                const r = await fetch(`/${d.path}`);
+                                if (r.ok) {
+                                    const txt = await r.text();
+                                    const applied = await applyStylesFromHTML(txt);
+                                    if (applied) return;
+                                }
+                            } catch (e) { console.log(e); }
+                        }
+
+                        console.log('Admin fallback full reload');
+                        // before full reload, persist admin state
+                        saveAdminState();
+                        window.location.reload();
+                    }
+                } catch (e) { console.log(e); }
+            };
+        } catch (e) {
+            console.log('Reload socket not available', e);
+        }
+    </script>
+</body>
+</html>

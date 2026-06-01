@@ -1,7 +1,10 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
+import asyncio
+import os
+from pathlib import Path
 import time
 
 app = FastAPI(title="Live Score Admin API")
@@ -35,10 +38,17 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+# Keep last broadcasted event so viewers can query current score on connect
+last_event = None
+
+# Separate manager for reload/live-edit notifications
+reload_manager = ConnectionManager()
+
 class ScoreEvent(BaseModel):
     team: str
     score: str
     delay: int = 10  # Độ trễ mặc định 10 giây nếu Admin không truyền
+    action: str = "goal"
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -50,6 +60,63 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
+
+@app.websocket('/ws/reload')
+async def websocket_reload(websocket: WebSocket):
+    await reload_manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        reload_manager.disconnect(websocket)
+
+
+async def _file_watcher_loop():
+    # Watch a small set of files in the project root for modifications and notify clients
+    watch_root = os.environ.get('WATCH_ROOT')
+    if watch_root:
+        project_root = Path(watch_root).resolve()
+    else:
+        project_root = Path(__file__).resolve().parent.parent
+    watch_files = [project_root / 'index.html', project_root / 'admin.html']
+    mtimes = {}
+
+    for f in watch_files:
+        try:
+            mtimes[str(f)] = os.path.getmtime(f)
+        except Exception:
+            mtimes[str(f)] = None
+
+    while True:
+        for f in watch_files:
+            p = str(f)
+            try:
+                m = os.path.getmtime(f)
+            except Exception:
+                m = None
+            if mtimes.get(p) is None and m is not None:
+                mtimes[p] = m
+                # new file appeared, trigger reload and include path
+                try:
+                    rel = os.path.relpath(p, str(project_root)).replace('\\', '/')
+                except Exception:
+                    rel = os.path.basename(p)
+                await reload_manager.broadcast({"type": "reload", "path": rel})
+            elif m is not None and mtimes.get(p) is not None and m != mtimes.get(p):
+                mtimes[p] = m
+                try:
+                    rel = os.path.relpath(p, str(project_root)).replace('\\', '/')
+                except Exception:
+                    rel = os.path.basename(p)
+                await reload_manager.broadcast({"type": "reload", "path": rel})
+        await asyncio.sleep(1.0)
+
+
+@app.on_event("startup")
+async def start_watcher():
+    # start background file watcher
+    asyncio.create_task(_file_watcher_loop())
+
 @app.post("/admin/score")
 async def trigger_goal(event: ScoreEvent):
     """
@@ -60,10 +127,22 @@ async def trigger_goal(event: ScoreEvent):
         "event_timestamp": time.time() * 1000,
         "team": event.team,
         "score": event.score,
-        "delay": event.delay
+        "delay": event.delay,
+        "action": event.action,
     }
+    # persist last event
+    global last_event
+    last_event = payload
     await manager.broadcast(payload)
     return {"status": "success", "message": "Đã bắn sự kiện cập nhật tỷ số tới toàn bộ người xem!", "data": payload}
+
+
+@app.get('/admin/last')
+async def get_last_event():
+    """Return the last broadcasted score event or 204 if none."""
+    if last_event is None:
+        return Response(status_code=204)
+    return last_event
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

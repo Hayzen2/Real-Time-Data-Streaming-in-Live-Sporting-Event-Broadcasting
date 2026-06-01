@@ -264,25 +264,25 @@
                     <div class="commentator-badge">
                         <img src="https://i.pravatar.cc/100?img=11" alt="BLV" class="commentator-avatar">
                         <div class="commentator-details">
-                            <span class="live-tag">LIVE ||||</span>
-                            <span class="commentator-name">BLV Sún</span>
+                            <span class="live-tag">LIVE</span>
+                            <span class="commentator-name">Commentator Sun</span>
                         </div>
                     </div>
                     
                     <div class="match-title">
-                        <span id="teamA-name">Team Đỏ</span>
+                        <span id="teamA-name">Team Red</span>
                         <img src="https://flagcdn.com/w80/vn.png" alt="VN" class="team-logo">
                         <span class="vs-badge">VS</span>
                         <img src="https://flagcdn.com/w80/kr.png" alt="KR" class="team-logo">
-                        <span id="teamB-name">Team Xanh</span>
+                        <span id="teamB-name">Team Blue</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Thanh trạng thái Websocket -->
-            <div id="status-bar">
-                Trạng thái: <span id="status" style="color:#aaa;">Đang chờ sự kiện...</span>
-            </div>
+                    <!-- WebSocket status bar -->
+                    <div id="status-bar">
+                        Status: <span id="status" style="color:#aaa;">Waiting for events...</span>
+                    </div>
         </div>
 
         <!-- Cột Phải: Sidebar Danh sách trận -->
@@ -333,19 +333,67 @@
 
     <script>
         // ==========================================
-        // PHẦN 1: TƯƠNG TÁC DOM & HÀNG ĐỢI SỰ KIỆN (EVENT QUEUE)
+        // PART 1: DOM INTERACTION & EVENT QUEUE
         // ==========================================
         const statusText = document.getElementById('status');
         let eventQueue = []; // Nơi chứa các sự kiện bàn thắng chờ đến giờ phát
 
-        function showGoalEvent(data) {
-            statusText.innerText = `[${new Date(data.event_timestamp).toLocaleTimeString()}] VÀOOOOO! ${data.team} vừa ghi bàn! Tỷ số: ${data.score}`;
+        // Track whether we restored a last event from storage
+        let restoredFromStorage = false;
+
+        // Restore last score/event from localStorage so page reload doesn't reset it
+        try {
+            const raw = localStorage.getItem('livetiming_last_event');
+            if (raw) {
+                const last = JSON.parse(raw);
+                if (last && last.event_timestamp) {
+                    // show persisted score immediately
+                    showScoreEvent(last);
+                    restoredFromStorage = true;
+                }
+            }
+        } catch (e) { console.log(e); }
+
+        // If we didn't restore from localStorage, ask the backend for the last broadcasted score
+        if (!restoredFromStorage) {
+            (async () => {
+                try {
+                    const res = await fetch(`${httpProtocol}//${host}:8000/admin/last`);
+                    if (res && res.ok) {
+                        const data = await res.json();
+                        if (data && data.event_timestamp) {
+                            showScoreEvent(data);
+                            restoredFromStorage = true;
+                        }
+                    }
+                } catch (e) { /* ignore */ }
+            })();
+        }
+
+        function showScoreEvent(data) {
+            const action = (data.action || 'goal').toLowerCase();
+            const timeLabel = `[${new Date(data.event_timestamp).toLocaleTimeString()}]`;
+
+            if (action === 'reset') {
+                statusText.innerText = `${timeLabel} Score reset to ${data.score}`;
+                statusText.style.color = "#ffb000";
+                return;
+            }
+
+            if (action === 'manual') {
+                statusText.innerText = `${timeLabel} Score updated: ${data.team} | ${data.score}`;
+                statusText.style.color = "#00d1ff";
+                return;
+            }
+
+            statusText.innerText = `${timeLabel} GOAL! ${data.team} scored! Score: ${data.score}`;
             statusText.style.color = "#00ff00";
         }
 
         // ==========================================
         // PHẦN 2: CẤU HÌNH HLS.JS (VIDEO PLAYER)
         // ==========================================
+        let hlsInstance = null;
         const video = document.createElement('video');
         video.id = 'video-player';
         video.controls = true;
@@ -353,15 +401,23 @@
         video.muted = true;
         document.getElementById('video-container').appendChild(video);
         
-        const videoSrc = 'http://localhost:8080/live/test.m3u8';
+        const host = window.location.hostname || 'localhost';
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const httpProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+        const videoSrc = `${httpProtocol}//${host}:3000/hls/master.m3u8`;
 
-        // Chrome/Firefox cần hls.js để đọc m3u8
+        // Chrome/Firefox require hls.js to play m3u8
         if (Hls.isSupported()) {
-            const hls = new Hls();
-            hls.loadSource(videoSrc);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                console.log("Luồng video đã sẵn sàng!");
+            hlsInstance = new Hls({
+                // Problem 1: Configured for Lowest Possible Latency in HLS
+                liveSyncDurationCount: 2, 
+                liveMaxLatencyDurationCount: 4, 
+                maxLiveSyncPlaybackRate: 1.5 
+            });
+            hlsInstance.loadSource(videoSrc);
+            hlsInstance.attachMedia(video);
+            hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+                console.log("Video stream ready");
                 video.play().catch(e => console.log(e));
             });
         } 
@@ -381,11 +437,19 @@
         video.addEventListener('timeupdate', () => {
             if (eventQueue.length === 0) return;
 
-            // Kiểm tra xem thời gian của Video đã đuổi kịp thời điểm sự kiện cần hiển thị chưa
+            // Problem 4: True Frame-Accurate Sync using EXT-X-PROGRAM-DATE-TIME
+            let currentVideoTimeMS = null;
+            if (hlsInstance && hlsInstance.playingDate) {
+                currentVideoTimeMS = hlsInstance.playingDate.getTime();
+            } else {
+                // Fallback for Safari/native player if metadata is missing
+                currentVideoTimeMS = Date.now() - (10 * 1000);
+            }
+
             for (let i = 0; i < eventQueue.length; i++) {
                 let ev = eventQueue[i];
-                if (video.currentTime >= ev.target_video_time) {
-                    showGoalEvent(ev);
+                if (currentVideoTimeMS >= ev.event_timestamp) {
+                    showScoreEvent(ev);
                     eventQueue.splice(i, 1); // Lấy ra khỏi hàng đợi
                     i--; // Lùi index vì array bị thay đổi
                 }
@@ -393,38 +457,148 @@
         });
 
         // ==========================================
-        // PHẦN 4: WEBSOCKET
+        // PART 4: WEBSOCKET
         // ==========================================
-        const ws = new WebSocket('ws://localhost:8000/ws');
+        const ws = new WebSocket(`${wsProtocol}//${host}:8000/ws`);
 
         ws.onopen = () => {
-            console.log("Đã kết nối thành công tới WebSocket Server!");
+            console.log("Connected to WebSocket server");
+            // If we restored a persisted score, avoid overwriting that status text.
+            if (!restoredFromStorage) {
+                statusText.innerText = "Connected to score server";
+                statusText.style.color = "#b9f1d0";
+            } else {
+                // annotate reconnect without clearing the shown score
+                try {
+                    statusText.innerText = statusText.innerText + ' (reconnected)';
+                } catch (e) {}
+            }
         };
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            console.log("Backend báo có bàn thắng:", data);
-            
-            // THUẬT TOÁN ĐỒNG BỘ: Tính toán thời điểm sự kiện được phép nổ trên màn hình
-            // Bằng cách cộng thêm "Độ trễ truyền hình (delay)" vào mốc thời gian hiện tại của cái video người dùng đang xem.
-            const delay_seconds = data.delay || 10;
-            
+            console.log("Score event received:", data);
+
             if (!video.paused && video.currentTime > 0) {
-                data.target_video_time = video.currentTime + delay_seconds;
-                eventQueue.push(data); // "Giam" sự kiện vào hàng đợi
-                
-                statusText.innerText = `[Hệ thống] Trọng tài báo ${data.team} ghi bàn. Chờ VAR đồng bộ lên luồng video trong ${delay_seconds} giây nữa...`;
+                eventQueue.push(data);
+
+                statusText.innerText = `[System] Referee reported ${data.team} scored. Waiting for video to sync to real-world time...`;
                 statusText.style.color = "#ffa500";
             } else {
-                // Nếu video đang lỗi / đang dừng, show luôn không cần đợi
-                showGoalEvent(data);
+                // If video isn't running, show immediately
+                    showScoreEvent(data);
             }
+
+            // Persist last event so reload won't lose it
+            try { localStorage.setItem('livetiming_last_event', JSON.stringify(data)); } catch (e) {}
         };
 
         ws.onclose = () => {
-            statusText.innerText = "Mất kết nối tới máy chủ cập nhật tỷ số...";
+            statusText.innerText = "Lost connection to score server";
             statusText.style.color = "red";
         };
+
+        // Live-reload socket: backend notifies when frontend files change
+        try {
+            const reloadWs = new WebSocket(`${wsProtocol}//${host}:8000/ws/reload`);
+            const applyStylesFromHTML = async (htmlText) => {
+                try {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlText, 'text/html');
+                    const newStyles = Array.from(doc.querySelectorAll('style'));
+                    const currStyles = Array.from(document.querySelectorAll('style'));
+
+                    if (newStyles.length > 0) {
+                        // Replace existing style blocks if counts match, otherwise overwrite head styles
+                        if (currStyles.length === newStyles.length) {
+                            for (let i = 0; i < newStyles.length; i++) {
+                                currStyles[i].textContent = newStyles[i].textContent;
+                            }
+                        } else {
+                            // remove old styles
+                            currStyles.forEach(s => s.remove());
+                            // append new styles
+                            const head = document.head || document.getElementsByTagName('head')[0];
+                            newStyles.forEach(ns => {
+                                const el = document.createElement('style');
+                                el.textContent = ns.textContent;
+                                head.appendChild(el);
+                            });
+                        }
+                        console.log('Applied CSS-only update from HTML');
+                        return true;
+                    }
+
+                    // Also handle <link rel="stylesheet"> updates by cache-busting hrefs
+                    const newLinks = Array.from(doc.querySelectorAll('link[rel="stylesheet"]'));
+                    if (newLinks.length > 0) {
+                        const currLinks = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
+                        newLinks.forEach((nl) => {
+                            const href = nl.getAttribute('href');
+                            // attempt to find matching current link
+                            const match = currLinks.find(cl => cl.getAttribute('href') && cl.getAttribute('href').includes(href));
+                            if (match) {
+                                const sep = match.href.indexOf('?') === -1 ? '?' : '&';
+                                match.href = match.href.split('?')[0] + sep + 't=' + Date.now();
+                            }
+                        });
+                        return true;
+                    }
+                } catch (e) { console.log('applyStylesFromHTML failed', e); }
+                return false;
+            };
+
+            reloadWs.onmessage = async (ev) => {
+                try {
+                    const d = JSON.parse(ev.data);
+                    if (d && d.type === 'reload') {
+                        console.log('Reload event received —', d.path || 'unknown');
+                        // If server provided path and it's a CSS file, try CSS-only update
+                        if (d.path && (d.path.endsWith('.css') || d.path.endsWith('.scss'))) {
+                            // try to fetch the CSS file and update or cache-bust link
+                            const cssUrl = `/${d.path}`;
+                            // find link tag matching
+                            const link = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).find(l => l.href && l.href.includes(d.path));
+                            if (link) {
+                                link.href = link.href.split('?')[0] + '?t=' + Date.now();
+                                console.log('CSS link cache-busted:', link.href);
+                                return;
+                            }
+                            // fallback: fetch and insert as <style>
+                            try {
+                                const r = await fetch(cssUrl);
+                                if (r.ok) {
+                                    const txt = await r.text();
+                                    const el = document.createElement('style');
+                                    el.textContent = txt;
+                                    document.head.appendChild(el);
+                                    console.log('Inserted fetched CSS as <style>');
+                                    return;
+                                }
+                            } catch (e) {}
+                        }
+
+                        // If server provided a changed HTML file (index.html/admin.html) try to extract styles only
+                        if (d.path && (d.path.endsWith('index.html') || d.path.endsWith('admin.html'))) {
+                            try {
+                                const r = await fetch(`/${d.path}`);
+                                if (r.ok) {
+                                    const txt = await r.text();
+                                    const applied = await applyStylesFromHTML(txt);
+                                    if (applied) return;
+                                }
+                            } catch (e) { console.log(e); }
+                        }
+
+                        // fallback to full reload
+                        console.log('Falling back to full reload');
+                        window.location.reload();
+                    }
+                } catch (e) { console.log(e); }
+            };
+        } catch (e) {
+            console.log('Reload socket not available', e);
+        }
     </script>
 
 </body>
