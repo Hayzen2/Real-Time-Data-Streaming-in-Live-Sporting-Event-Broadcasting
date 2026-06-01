@@ -42,6 +42,6 @@ services:
     entrypoint: ["/bin/sh"]
     command: ["/scripts/run.sh"]
     environment:
-      - INPUT_URL=rtmp://rtmp-server/live/test
+      - INPUT_URL=rtmp://rtmp-server/live/${STREAM_KEY:-test}
       - OUTPUT_DIR=/var/www/hls
     restart: unless-stopped

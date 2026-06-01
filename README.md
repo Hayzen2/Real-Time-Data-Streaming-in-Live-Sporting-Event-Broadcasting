@@ -47,6 +47,18 @@ Then click **Start Streaming**.
 
 You can also open `index.html` directly in your browser, but the Dockerized frontend is the recommended option.
 
+## Deployment Guide (Cloud Server)
+This platform is fully ready to be deployed to a VPS (Virtual Private Server) like AWS EC2, DigitalOcean, or Linode.
+
+1. Clone this repository onto your cloud server.
+2. Run `docker compose up -d --build` on the server.
+3. **Connecting OBS:** From your local broadcasting computer, open OBS Studio. Instead of `127.0.0.1`, point the RTMP Server URL to your cloud server's Public IP Address:
+   - **Server:** `rtmp://<YOUR_SERVER_PUBLIC_IP>/live`
+   - **Stream Key:** `test`
+4. **Viewers:** Users can watch the stream by visiting `http://<YOUR_SERVER_PUBLIC_IP>:3000`.
+
+*Note: The frontend code (`index.html`) automatically detects the host IP, so no code changes are required to the WebSocket or HLS URLs when deploying!*
+
 ## System Problems Addressed & How We Solved Them
 
 ### 1. Reducing Video Streaming Latency

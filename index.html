@@ -333,6 +333,18 @@
 
     <script>
         // ==========================================
+        // CONFIGURATION (Supports Port Forwarding & Tunnels)
+        // ==========================================
+        const urlParams = new URLSearchParams(window.location.search);
+        const host = window.location.hostname || 'localhost';
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const httpProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+        
+        // Allows overriding backend/video endpoints via URL when using tunneling services like Ngrok
+        const apiHost = urlParams.get('api') || `${host}:8000`;
+        const videoSrc = urlParams.get('hls') || `${httpProtocol}//${host}:3000/hls/master.m3u8`;
+
+        // ==========================================
         // PART 1: DOM INTERACTION & EVENT QUEUE
         // ==========================================
         const statusText = document.getElementById('status');
@@ -358,7 +370,7 @@
         if (!restoredFromStorage) {
             (async () => {
                 try {
-                    const res = await fetch(`${httpProtocol}//${host}:8000/admin/last`);
+                    const res = await fetch(`${httpProtocol}//${apiHost}/admin/last`);
                     if (res && res.ok) {
                         const data = await res.json();
                         if (data && data.event_timestamp) {
@@ -400,11 +412,6 @@
         video.autoplay = true;
         video.muted = true;
         document.getElementById('video-container').appendChild(video);
-        
-        const host = window.location.hostname || 'localhost';
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const httpProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
-        const videoSrc = `${httpProtocol}//${host}:3000/hls/master.m3u8`;
 
         // Chrome/Firefox require hls.js to play m3u8
         if (Hls.isSupported()) {
@@ -459,7 +466,7 @@
         // ==========================================
         // PART 4: WEBSOCKET
         // ==========================================
-        const ws = new WebSocket(`${wsProtocol}//${host}:8000/ws`);
+        const ws = new WebSocket(`${wsProtocol}//${apiHost}/ws`);
 
         ws.onopen = () => {
             console.log("Connected to WebSocket server");
@@ -500,7 +507,7 @@
 
         // Live-reload socket: backend notifies when frontend files change
         try {
-            const reloadWs = new WebSocket(`${wsProtocol}//${host}:8000/ws/reload`);
+            const reloadWs = new WebSocket(`${wsProtocol}//${apiHost}/ws/reload`);
             const applyStylesFromHTML = async (htmlText) => {
                 try {
                     const parser = new DOMParser();
