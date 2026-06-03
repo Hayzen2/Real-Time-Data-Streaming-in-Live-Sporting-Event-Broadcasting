@@ -28,7 +28,7 @@ http://localhost:3000
 
 The admin score update page is available at:
 ```text
-http://localhost:3000/admin.html
+http://localhost:3000/admin
 ```
 
 Use `index.html` for viewing only, and `admin.html` for score updates.

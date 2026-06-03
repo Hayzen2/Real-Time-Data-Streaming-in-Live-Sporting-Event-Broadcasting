@@ -42,17 +42,8 @@ services:
       - OUTPUT_DIR=/var/www/hls
     restart: unless-stopped
 
-  ngrok:
-    image: ngrok/ngrok:latest
-    container_name: ngrok
-    restart: unless-stopped
-    command: "start --all --config /etc/ngrok.yml"
-    volumes:
-      - ./ngrok.yml:/etc/ngrok.yml:ro
+  playit:
+    image: ghcr.io/playit-cloud/playit-agent:0.17
+    network_mode: host
     environment:
-      - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-    ports:
-      - "4040:4040"
-    depends_on:
-      - frontend
-      - backend
+    - SECRET_KEY=${PLAYIT_SECRET_KEY}
