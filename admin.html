@@ -225,10 +225,10 @@
                 <span style="background: #e50027; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; animation: pulse 2s infinite;">LIVE</span>
             </label>
             <select style="width: 100%; margin-top: 8px; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: #0b1230; color: white; font-size: 16px; font-weight: bold; cursor: pointer;">
-                <option value="vn_kr">🇻🇳 Vietnam vs 🇰🇷 South Korea</option>
-                <option value="fr_dk">🇫🇷 France vs 🇩🇰 Denmark</option>
-                <option value="de_es">🇩🇪 Germany vs 🇪🇸 Spain</option>
-                <option value="jp_sa">🇯🇵 Japan vs 🇸🇦 Saudi Arabia</option>
+                <option value="psg_ars">🇫🇷 PSG vs 🏴󠁧󠁢󠁥󠁮󠁧󠁿 Arsenal</option>
+                <option value="rma_mci">🇪🇸 Real Madrid vs 🏴󠁧󠁢󠁥󠁮󠁧󠁿 Man City</option>
+                <option value="bay_bar">🇩🇪 Bayern Munich vs 🇪🇸 Barcelona</option>
+                <option value="liv_int">🏴󠁧󠁢󠁥󠁮󠁧󠁿 Liverpool vs 🇮🇹 Inter Milan</option>
             </select>
         </div>
 
@@ -237,11 +237,11 @@
         <div class="grid">
             <div class="field">
                 <label for="teamA">Team A name</label>
-                <input id="teamA" value="Vietnam" />
+                <input id="teamA" value="PSG" />
             </div>
             <div class="field">
                 <label for="teamB">Team B name</label>
-                <input id="teamB" value="South Korea" />
+                <input id="teamB" value="Arsenal" />
             </div>
 
             <div class="field full">
@@ -395,12 +395,12 @@
 
         document.getElementById("goalA").addEventListener("click", async () => {
             scoreAEl.value = Number(scoreAEl.value || 0) + 1;
-            await pushScore(teamAEl.value || "Vietnam", "goal");
+            await pushScore(teamAEl.value || "PSG", "goal");
         });
 
         document.getElementById("goalB").addEventListener("click", async () => {
             scoreBEl.value = Number(scoreBEl.value || 0) + 1;
-            await pushScore(teamBEl.value || "South Korea", "goal");
+            await pushScore(teamBEl.value || "Arsenal", "goal");
         });
 
         // Send current score, but skip if identical to last sent score

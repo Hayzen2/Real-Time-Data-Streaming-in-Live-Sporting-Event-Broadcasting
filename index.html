@@ -177,6 +177,18 @@
             border: 2px solid rgba(255,255,255,0.2);
         }
 
+        .card-soon-tag {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background-color: #ffb000;
+            color: #000;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 3px 8px;
+            border-radius: 15px;
+        }
+
         .card-team {
             display: flex;
             flex-direction: column;
@@ -205,11 +217,11 @@
                 
                 <div class="match-info-bar">
                     <div class="match-title">
-                        <span id="teamA-name">Vietnam</span>
-                        <img src="https://flagcdn.com/w80/vn.png" alt="VN" class="team-logo">
+                        <span id="teamA-name">PSG</span>
+                        <img src="https://upload.wikimedia.org/wikipedia/en/a/a7/Paris_Saint-Germain_F.C..svg" alt="PSG" class="team-logo">
                         <span class="vs-badge">VS</span>
-                        <img src="https://flagcdn.com/w80/kr.png" alt="KR" class="team-logo">
-                        <span id="teamB-name">South Korea</span>
+                        <img src="https://upload.wikimedia.org/wikipedia/en/5/53/Arsenal_FC.svg" alt="ARS" class="team-logo">
+                        <span id="teamB-name">Arsenal</span>
                     </div>
                 </div>
             </div>
@@ -224,48 +236,48 @@
         <div class="sidebar">
             <!-- Card 1 -->
             <div class="match-card">
-                <div class="card-live-tag">LIVE</div>
+                <div class="card-soon-tag">UPCOMING</div>
                 <div class="card-matchup">
                     <div class="card-team">
-                        <img src="https://flagcdn.com/w80/fr.png" alt="FR" class="card-logo">
-                        <span>France</span>
+                        <img src="https://upload.wikimedia.org/wikipedia/en/5/56/Real_Madrid_CF.svg" alt="RMA" class="card-logo">
+                        <span>Real Madrid</span>
                     </div>
                     <span class="card-vs">VS</span>
                     <div class="card-team">
-                        <img src="https://flagcdn.com/w80/dk.png" alt="DK" class="card-logo">
-                        <span>Denmark</span>
+                        <img src="https://upload.wikimedia.org/wikipedia/en/e/eb/Manchester_City_FC_badge.svg" alt="MCI" class="card-logo">
+                        <span>Man City</span>
                     </div>
                 </div>
             </div>
 
             <!-- Card 2 -->
             <div class="match-card">
-                <div class="card-live-tag">LIVE</div>
+                <div class="card-soon-tag">UPCOMING</div>
                 <div class="card-matchup">
                     <div class="card-team">
-                        <img src="https://flagcdn.com/w80/de.png" alt="DE" class="card-logo">
-                        <span>Germany</span>
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/1/1b/FC_Bayern_M%C3%BCnchen_logo_%282017%29.svg" alt="BAY" class="card-logo">
+                        <span>Bayern</span>
                     </div>
                     <span class="card-vs">VS</span>
                     <div class="card-team">
-                        <img src="https://flagcdn.com/w80/es.png" alt="ES" class="card-logo">
-                        <span>Spain</span>
+                        <img src="https://upload.wikimedia.org/wikipedia/en/4/47/FC_Barcelona_%28crest%29.svg" alt="BAR" class="card-logo">
+                        <span>Barcelona</span>
                     </div>
                 </div>
             </div>
             
             <!-- Card 3 -->
             <div class="match-card">
-                <div class="card-live-tag">LIVE</div>
+                <div class="card-soon-tag">UPCOMING</div>
                 <div class="card-matchup">
                     <div class="card-team">
-                        <img src="https://flagcdn.com/w80/jp.png" alt="JP" class="card-logo">
-                        <span>Japan</span>
+                        <img src="https://upload.wikimedia.org/wikipedia/en/0/0c/Liverpool_FC.svg" alt="LIV" class="card-logo">
+                        <span>Liverpool</span>
                     </div>
                     <span class="card-vs">VS</span>
                     <div class="card-team">
-                        <img src="https://flagcdn.com/w80/sa.png" alt="SA" class="card-logo">
-                        <span>S. Arabia</span>
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/0/05/FC_Internazionale_Milano_2021.svg" alt="INT" class="card-logo">
+                        <span>Inter</span>
                     </div>
                 </div>
             </div>
@@ -288,6 +300,32 @@
         // ==========================================
         const statusText = document.getElementById('status');
         let eventQueue = []; // Holds goal events waiting to be displayed
+        let lastDisplayedEventTime = 0; // Prevent showing older events
+
+        // Unified function to safely queue events until the video catches up
+        function queueScoreEvent(data) {
+            // Prevent duplicate queueing of the exact same event
+            if (eventQueue.some(ev => ev.event_timestamp === data.event_timestamp)) return;
+            // Prevent queueing older events if we already displayed a newer one
+            if (data.event_timestamp <= lastDisplayedEventTime) return;
+
+            eventQueue.push(data);
+
+            const delaySecs = data.delay || 0;
+
+            if (data.action === 'goal') {
+                statusText.innerText = `[System] Referee reported ${data.team} scored! Waiting for video to sync (~${delaySecs}s)...`;
+            } else if (data.action === 'manual') {
+                statusText.innerText = `[System] Syncing score. Waiting for video...`;
+            } else if (data.action === 'reset') {
+                statusText.innerText = `[System] Score reset. Waiting for video...`;
+            } else {
+                statusText.innerText = `[System] Update received. Waiting for video...`;
+            }
+            statusText.style.color = "#ffa500";
+            
+            try { localStorage.setItem('livetiming_last_event', JSON.stringify(data)); } catch (e) {}
+        }
 
         // Track whether we restored a last event from storage
         let restoredFromStorage = false;
@@ -298,8 +336,7 @@
             if (raw) {
                 const last = JSON.parse(raw);
                 if (last && last.event_timestamp) {
-                    // show persisted score immediately
-                    showScoreEvent(last);
+                    queueScoreEvent(last);
                     restoredFromStorage = true;
                 }
             }
@@ -313,7 +350,7 @@
                     if (res && res.ok) {
                         const data = await res.json();
                         if (data && data.event_timestamp) {
-                            showScoreEvent(data);
+                            queueScoreEvent(data);
                             restoredFromStorage = true;
                         }
                     }
@@ -322,6 +359,7 @@
         }
 
         function showScoreEvent(data) {
+            lastDisplayedEventTime = data.event_timestamp;
             const action = (data.action || 'goal').toLowerCase();
             const timeLabel = `[${new Date(data.event_timestamp).toLocaleTimeString()}]`;
 
@@ -394,7 +432,9 @@
 
             for (let i = 0; i < eventQueue.length; i++) {
                 let ev = eventQueue[i];
-                if (currentVideoTimeMS >= ev.event_timestamp) {
+                // Add the admin's delay offset to account for FFmpeg packaging latency
+                let targetTimeMS = ev.event_timestamp + ((ev.delay || 0) * 1000);
+                if (currentVideoTimeMS >= targetTimeMS) {
                     showScoreEvent(ev);
                     eventQueue.splice(i, 1); // Remove from queue
                     i--; // Decrement index because array was modified
@@ -426,23 +466,8 @@
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             console.log("Score event received:", data);
-
-            if (!video.paused && video.currentTime > 0) {
-                eventQueue.push(data);
-
-                if (data.action === 'goal') {
-                    statusText.innerText = `[System] Referee reported ${data.team} scored! Waiting for video to sync...`;
-                } else {
-                    statusText.innerText = `[System] Score update received. Waiting for video to sync...`;
-                }
-                statusText.style.color = "#ffa500";
-            } else {
-                // If video isn't running, show immediately
-                    showScoreEvent(data);
-            }
-
-            // Persist last event so reload won't lose it
-            try { localStorage.setItem('livetiming_last_event', JSON.stringify(data)); } catch (e) {}
+            
+            queueScoreEvent(data);
         };
 
         ws.onclose = () => {
