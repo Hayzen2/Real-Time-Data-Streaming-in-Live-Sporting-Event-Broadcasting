@@ -47,17 +47,28 @@ Then click **Start Streaming**.
 
 You can also open `index.html` directly in your browser, but the Dockerized frontend is the recommended option.
 
-## Deployment Guide (Cloud Server)
-This platform is fully ready to be deployed to a VPS (Virtual Private Server) like AWS EC2, DigitalOcean, or Linode.
+## Free Deployment Guide (Tunnels)
+This platform is built to be deployed locally and shared for free over the internet using a hybrid tunneling approach.
 
-1. Clone this repository onto your cloud server.
-2. Run `docker compose up -d --build` on the server.
-3. **Connecting OBS:** From your local broadcasting computer, open OBS Studio. Instead of `127.0.0.1`, point the Server URL to your cloud server's Public IP Address using SRT:
-   - **Server:** `srt://<YOUR_SERVER_PUBLIC_IP>:1935?streamid=YOUR_STREAM_KEY` *(replace YOUR_STREAM_KEY with the value in your .env file)*
+**Why Pinggy for TCP and Playit for UDP?**
+- **Pinggy (TCP):** Web traffic (HTML, WebSockets, and HLS video viewing) runs over TCP (HTTP/HTTPS). We use Pinggy because other free tunnels (like Ngrok) have strict 1GB/month data limits that live video viewers will exhaust in 15 minutes. *The main drawback is that Pinggy's free tier enforces a 60-minute time limit per session, but you can instantly reconnect to get a new URL.*
+- **Playit (UDP):** The SRT protocol used by OBS to ingest video strictly requires UDP. Pinggy's free SSH tunnels only support TCP, whereas Playit provides free custom UDP tunnels, making it the only viable free option for SRT.
+
+1. **Start the Platform:** Run `docker compose up -d --build` on your computer.
+2. **Web Traffic Tunnel (For Viewers - TCP):** Use Pinggy to safely tunnel the web traffic without hitting strict bandwidth data caps.
+   - Open a terminal and run: `ssh -p 443 -R0:localhost:3000 pinggy@a.pinggy.io`
+   - Copy the generated `https://...` link. This is the link you give your viewers.
+   - As an admin, go to `https://<pinggy-link>/admin` and enter your password.
+   - *Note: Pinggy's free tunnels reset every 60 minutes. When the time is up, simply press the up arrow in your terminal and run the command again to get a new link!*
+3. **Video Traffic Tunnel (For OBS - UDP):** The `playit` Docker container handles the heavy SRT video traffic automatically.
+   - Run `docker logs playit` to get your secret claim link and open it in your browser.
+   - In the Playit dashboard, create a **Custom UDP Tunnel**. Set the Local IP to `127.0.0.1` and Port to `1935`.
+   - Playit will give you a public address (e.g., `orange-apple.gl.at.ply.gg:12345`).
+4. **Connecting OBS:** In OBS Studio, use your Playit address to stream securely over UDP:
+   - **Server:** `srt://<YOUR_PLAYIT_URL>:<PLAYIT_PORT>?streamid=YOUR_STREAM_KEY` *(replace with your .env key)*
    - **Stream Key:** *(Leave this blank!)*
-4. **Viewers:** Users can watch the stream by visiting `http://<YOUR_SERVER_PUBLIC_IP>:3000`.
 
-*Note: The frontend code (`index.html`) automatically detects the host IP, so no code changes are required to the WebSocket or HLS URLs when deploying!*
+*Note: The frontend code (`index.html`) automatically adapts to the Pinggy URL using dynamic host detection, and Nginx handles the reverse proxying, so no code changes are required!*
 
 ## System Problems Addressed & How We Solved Them
 
