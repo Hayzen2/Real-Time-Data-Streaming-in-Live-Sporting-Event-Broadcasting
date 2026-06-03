@@ -335,9 +335,9 @@
         // ==========================================
         // CONFIGURATION (Supports Port Forwarding & Tunnels)
         // ==========================================
-        const host = window.location.host; // Automatically gets domain + port
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const httpProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+        const host = globalThis.location.host; // Automatically gets domain + port
+        const wsProtocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const httpProtocol = globalThis.location.protocol === 'https:' ? 'https:' : 'http:';
         
         const apiHost = host;
         const videoSrc = `${httpProtocol}//${host}/hls/master.m3u8`;
@@ -597,7 +597,7 @@
 
                         // fallback to full reload
                         console.log('Falling back to full reload');
-                        window.location.reload();
+                        globalThis.location.reload();
                     }
                 } catch (e) { console.log(e); }
             };

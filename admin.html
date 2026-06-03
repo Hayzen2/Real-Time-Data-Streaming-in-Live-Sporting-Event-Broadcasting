@@ -260,8 +260,8 @@
         const scoreBEl = document.getElementById("scoreB");
         const delayEl = document.getElementById("delay");
 
-        const host = window.location.host; // Automatically gets domain + port
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = globalThis.location.host; // Automatically gets domain + port
+        const wsProtocol = globalThis.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const apiHost = host;
         
         let ws = null;
@@ -453,7 +453,7 @@
                         console.log('Admin fallback full reload');
                         // before full reload, persist admin state
                         saveAdminState();
-                        window.location.reload();
+                        globalThis.location.reload();
                     }
                 } catch (e) { console.log(e); }
             };
