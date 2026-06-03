@@ -193,6 +193,12 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -212,16 +218,30 @@
         <h1>Score Admin Console</h1>
         <p class="subtitle">Admin console — use this page to send live score updates. The viewer page is read-only.</p>
 
+        <!-- Fake Match Selector to indicate controlled match -->
+        <div class="field full" style="margin-bottom: 24px; padding: 16px; background: rgba(47, 124, 255, 0.1); border: 1px solid rgba(47, 124, 255, 0.3); border-radius: 12px;">
+            <label style="color: #a3c4ff; display: flex; justify-content: space-between; align-items: center;">
+                Controlling Match 
+                <span style="background: #e50027; color: white; padding: 2px 6px; border-radius: 4px; font-size: 10px; animation: pulse 2s infinite;">LIVE</span>
+            </label>
+            <select style="width: 100%; margin-top: 8px; padding: 10px; border-radius: 8px; border: 1px solid var(--border); background: #0b1230; color: white; font-size: 16px; font-weight: bold; cursor: pointer;">
+                <option value="vn_kr">🇻🇳 Vietnam vs 🇰🇷 South Korea</option>
+                <option value="fr_dk">🇫🇷 France vs 🇩🇰 Denmark</option>
+                <option value="de_es">🇩🇪 Germany vs 🇪🇸 Spain</option>
+                <option value="jp_sa">🇯🇵 Japan vs 🇸🇦 Saudi Arabia</option>
+            </select>
+        </div>
+
         <div id="status" class="status">Ready.</div>
 
         <div class="grid">
             <div class="field">
                 <label for="teamA">Team A name</label>
-                <input id="teamA" value="Team Red" />
+                <input id="teamA" value="Vietnam" />
             </div>
             <div class="field">
                 <label for="teamB">Team B name</label>
-                <input id="teamB" value="Team Blue" />
+                <input id="teamB" value="South Korea" />
             </div>
 
             <div class="field full">
@@ -321,6 +341,9 @@
                 loginSection.style.display = "none";
                 controlSection.style.display = "block";
                 setStatus("Connected securely to score server.", "ok");
+
+                // Immediately sync the current admin score to the server
+                pushScore("System Sync", "manual");
             };
 
             ws.onclose = () => {
@@ -372,12 +395,12 @@
 
         document.getElementById("goalA").addEventListener("click", async () => {
             scoreAEl.value = Number(scoreAEl.value || 0) + 1;
-            await pushScore(teamAEl.value || "Team A", "goal");
+            await pushScore(teamAEl.value || "Vietnam", "goal");
         });
 
         document.getElementById("goalB").addEventListener("click", async () => {
             scoreBEl.value = Number(scoreBEl.value || 0) + 1;
-            await pushScore(teamBEl.value || "Team B", "goal");
+            await pushScore(teamBEl.value || "South Korea", "goal");
         });
 
         // Send current score, but skip if identical to last sent score

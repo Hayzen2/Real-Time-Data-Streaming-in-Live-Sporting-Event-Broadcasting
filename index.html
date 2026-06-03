@@ -34,7 +34,7 @@
             }
         }
 
-        /* --- PHẦN BÊN TRÁI: PLAYER --- */
+        /* --- LEFT SECTION: PLAYER --- */
         .main-wrapper {
             background: #ffffff;
             border-radius: 12px;
@@ -67,53 +67,7 @@
             height: 60px;
         }
 
-        /* Badge Bình Luận Viên (Xéo) */
-        .commentator-badge {
-            background-color: #0062cc;
-            height: 100%;
-            padding: 0 30px 0 20px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            clip-path: polygon(0 0, 90% 0, 100% 100%, 0% 100%);
-            color: white;
-            min-width: 180px;
-        }
-
-        .commentator-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            border: 2px solid white;
-            background-color: #ccc;
-            object-fit: cover;
-        }
-
-        .commentator-details {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        .live-tag {
-            background-color: #e50027;
-            color: white;
-            font-size: 10px;
-            font-weight: bold;
-            padding: 2px 5px;
-            border-radius: 3px;
-            display: inline-block;
-            margin-bottom: 2px;
-            width: fit-content;
-        }
-
-        .commentator-name {
-            font-weight: bold;
-            font-size: 15px;
-            white-space: nowrap;
-        }
-
-        /* Chi tiết trận đấu */
+        /* Match details */
         .match-title {
             flex: 1;
             display: flex;
@@ -142,7 +96,7 @@
             font-size: 16px;
         }
 
-        /* Phần Trạng thái websocket cập nhật tỷ số */
+        /* WebSocket score update status section */
         #status-bar {
             margin-top: 15px;
             padding: 12px;
@@ -153,7 +107,7 @@
             text-align: center;
         }
 
-        /* --- PHẦN BÊN PHẢI: SIDEBAR --- */
+        /* --- RIGHT SECTION: SIDEBAR --- */
         .sidebar {
             display: flex;
             flex-direction: column;
@@ -223,6 +177,15 @@
             border: 2px solid rgba(255,255,255,0.2);
         }
 
+        .card-team {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            font-size: 14px;
+            font-weight: 700;
+        }
+
         .card-vs {
             font-size: 22px;
             font-weight: 900;
@@ -230,51 +193,23 @@
             text-shadow: 0 2px 4px rgba(0,0,0,0.5);
         }
 
-        .card-commentator {
-            position: absolute;
-            bottom: 10px;
-            right: 10px;
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 20px;
-            padding: 4px 12px 4px 4px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .card-commentator img {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-        }
-
     </style>
 </head>
 <body>
 
     <div class="container">
-        <!-- Cột Trái: Player -->
+        <!-- Left Column: Player -->
         <div class="main-content">
             <div class="main-wrapper">
                 <div id="video-container"></div>
                 
                 <div class="match-info-bar">
-                    <div class="commentator-badge">
-                        <img src="https://i.pravatar.cc/100?img=11" alt="BLV" class="commentator-avatar">
-                        <div class="commentator-details">
-                            <span class="live-tag">LIVE</span>
-                            <span class="commentator-name">Commentator Sun</span>
-                        </div>
-                    </div>
-                    
                     <div class="match-title">
-                        <span id="teamA-name">Team Red</span>
+                        <span id="teamA-name">Vietnam</span>
                         <img src="https://flagcdn.com/w80/vn.png" alt="VN" class="team-logo">
                         <span class="vs-badge">VS</span>
                         <img src="https://flagcdn.com/w80/kr.png" alt="KR" class="team-logo">
-                        <span id="teamB-name">Team Blue</span>
+                        <span id="teamB-name">South Korea</span>
                     </div>
                 </div>
             </div>
@@ -285,19 +220,21 @@
                     </div>
         </div>
 
-        <!-- Cột Phải: Sidebar Danh sách trận -->
+        <!-- Right Column: Match List Sidebar -->
         <div class="sidebar">
             <!-- Card 1 -->
             <div class="match-card">
                 <div class="card-live-tag">LIVE</div>
                 <div class="card-matchup">
-                    <img src="https://flagcdn.com/w80/fr.png" alt="FR" class="card-logo">
+                    <div class="card-team">
+                        <img src="https://flagcdn.com/w80/fr.png" alt="FR" class="card-logo">
+                        <span>France</span>
+                    </div>
                     <span class="card-vs">VS</span>
-                    <img src="https://flagcdn.com/w80/dk.png" alt="DK" class="card-logo">
-                </div>
-                <div class="card-commentator">
-                    <img src="https://i.pravatar.cc/100?img=12" alt="BLV">
-                    BLV Dần
+                    <div class="card-team">
+                        <img src="https://flagcdn.com/w80/dk.png" alt="DK" class="card-logo">
+                        <span>Denmark</span>
+                    </div>
                 </div>
             </div>
 
@@ -305,13 +242,15 @@
             <div class="match-card">
                 <div class="card-live-tag">LIVE</div>
                 <div class="card-matchup">
-                    <img src="https://flagcdn.com/w80/de.png" alt="DE" class="card-logo">
+                    <div class="card-team">
+                        <img src="https://flagcdn.com/w80/de.png" alt="DE" class="card-logo">
+                        <span>Germany</span>
+                    </div>
                     <span class="card-vs">VS</span>
-                    <img src="https://flagcdn.com/w80/es.png" alt="ES" class="card-logo">
-                </div>
-                <div class="card-commentator">
-                    <img src="https://i.pravatar.cc/100?img=13" alt="BLV">
-                    BLV Trĩ
+                    <div class="card-team">
+                        <img src="https://flagcdn.com/w80/es.png" alt="ES" class="card-logo">
+                        <span>Spain</span>
+                    </div>
                 </div>
             </div>
             
@@ -319,13 +258,15 @@
             <div class="match-card">
                 <div class="card-live-tag">LIVE</div>
                 <div class="card-matchup">
-                    <img src="https://flagcdn.com/w80/jp.png" alt="JP" class="card-logo">
+                    <div class="card-team">
+                        <img src="https://flagcdn.com/w80/jp.png" alt="JP" class="card-logo">
+                        <span>Japan</span>
+                    </div>
                     <span class="card-vs">VS</span>
-                    <img src="https://flagcdn.com/w80/sa.png" alt="SA" class="card-logo">
-                </div>
-                <div class="card-commentator">
-                    <img src="https://i.pravatar.cc/100?img=14" alt="BLV">
-                    BLV Mão
+                    <div class="card-team">
+                        <img src="https://flagcdn.com/w80/sa.png" alt="SA" class="card-logo">
+                        <span>S. Arabia</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -346,7 +287,7 @@
         // PART 1: DOM INTERACTION & EVENT QUEUE
         // ==========================================
         const statusText = document.getElementById('status');
-        let eventQueue = []; // Nơi chứa các sự kiện bàn thắng chờ đến giờ phát
+        let eventQueue = []; // Holds goal events waiting to be displayed
 
         // Track whether we restored a last event from storage
         let restoredFromStorage = false;
@@ -391,7 +332,7 @@
             }
 
             if (action === 'manual') {
-                statusText.innerText = `${timeLabel} Score updated: ${data.team} | ${data.score}`;
+                statusText.innerText = `${timeLabel} Current Score: ${data.score}`;
                 statusText.style.color = "#00d1ff";
                 return;
             }
@@ -401,7 +342,7 @@
         }
 
         // ==========================================
-        // PHẦN 2: CẤU HÌNH HLS.JS (VIDEO PLAYER)
+        // PART 2: HLS.JS CONFIGURATION (VIDEO PLAYER)
         // ==========================================
         let hlsInstance = null;
         const video = document.createElement('video');
@@ -426,7 +367,7 @@
                 video.play().catch(e => console.log(e));
             });
         } 
-        // Dành cho Safari (hỗ trợ m3u8 mặc định)
+        // For Safari (native m3u8 support)
         else if (video.canPlayType('application/vnd.apple.mpegurl')) {
             video.src = videoSrc;
             video.addEventListener('loadedmetadata', function() {
@@ -435,10 +376,10 @@
         }
 
         // ==========================================
-        // PHẦN 3: ĐỒNG BỘ HÓA (SYNCHRONIZATION LOGIC)
+        // PART 3: SYNCHRONIZATION LOGIC
         // ==========================================
         
-        // Vòng lặp đồng bộ: Chạy liên tục mỗi khi video nhích thêm 1 khung hình
+        // Synchronization loop: Runs continuously every time the video advances by 1 frame
         video.addEventListener('timeupdate', () => {
             if (eventQueue.length === 0) return;
 
@@ -455,8 +396,8 @@
                 let ev = eventQueue[i];
                 if (currentVideoTimeMS >= ev.event_timestamp) {
                     showScoreEvent(ev);
-                    eventQueue.splice(i, 1); // Lấy ra khỏi hàng đợi
-                    i--; // Lùi index vì array bị thay đổi
+                    eventQueue.splice(i, 1); // Remove from queue
+                    i--; // Decrement index because array was modified
                 }
             }
         });
@@ -470,12 +411,14 @@
             console.log("Connected to WebSocket server");
             // If we restored a persisted score, avoid overwriting that status text.
             if (!restoredFromStorage) {
-                statusText.innerText = "Connected to score server";
-                statusText.style.color = "#b9f1d0";
+                statusText.innerText = "Current Score: 0-0";
+                statusText.style.color = "#00d1ff";
             } else {
                 // annotate reconnect without clearing the shown score
                 try {
-                    statusText.innerText = statusText.innerText + ' (reconnected)';
+                    if (!statusText.innerText.includes('(reconnected)')) {
+                        statusText.innerText = statusText.innerText + ' (reconnected)';
+                    }
                 } catch (e) {}
             }
         };
@@ -487,7 +430,11 @@
             if (!video.paused && video.currentTime > 0) {
                 eventQueue.push(data);
 
-                statusText.innerText = `[System] Referee reported ${data.team} scored. Waiting for video to sync to real-world time...`;
+                if (data.action === 'goal') {
+                    statusText.innerText = `[System] Referee reported ${data.team} scored! Waiting for video to sync...`;
+                } else {
+                    statusText.innerText = `[System] Score update received. Waiting for video to sync...`;
+                }
                 statusText.style.color = "#ffa500";
             } else {
                 // If video isn't running, show immediately

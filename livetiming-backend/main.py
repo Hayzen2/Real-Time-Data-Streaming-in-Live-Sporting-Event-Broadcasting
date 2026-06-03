@@ -12,7 +12,7 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
 app = FastAPI(title="Live Score Admin API")
 
-# Cấu hình CORS để web tĩnh có thể gọi API
+# Configure CORS so static web can call API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -50,14 +50,18 @@ reload_manager = ConnectionManager()
 class ScoreEvent(BaseModel):
     team: str
     score: str
-    delay: int = 10  # Độ trễ mặc định 10 giây nếu Admin không truyền
+    delay: int = 10  # Default delay of 10 seconds if Admin doesn't provide one
     action: str = "goal"
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
-        # Chế độ chờ: Client chỉ nhận chứ không gửi gì lên server (Keep-alive)
+        # Push the latest event immediately upon connection so new viewers see it
+        if last_event:
+            await websocket.send_json(last_event)
+            
+        # Standby mode: Client only receives, doesn't send anything to server (Keep-alive)
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:

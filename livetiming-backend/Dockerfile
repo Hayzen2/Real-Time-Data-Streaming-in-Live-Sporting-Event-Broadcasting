@@ -2,12 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Khởi tạo môi trường ảo và cài đặt các thư viện cần thiết
+# Initialize virtual environment and install required libraries
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy toàn bộ mã nguồn backend vào container
+# Copy the entire backend source code into the container
 COPY . .
 
-# Chạy server FastAPI bằng Uvicorn
+# Run FastAPI server using Uvicorn
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
