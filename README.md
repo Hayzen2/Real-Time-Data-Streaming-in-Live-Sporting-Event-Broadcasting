@@ -41,8 +41,8 @@ docker compose up -d --build frontend
 ### Step 4: Push a live stream with OBS
 Open OBS Studio and configure the stream settings:
 - **Service:** Custom
-- **Server:** `rtmp://127.0.0.1/live`
-- **Stream Key:** `test`
+- **Server:** `srt://127.0.0.1:1935?streamid=YOUR_STREAM_KEY` *(replace YOUR_STREAM_KEY with your actual key from .env)*
+- **Stream Key:** *(Leave this blank!)*
 Then click **Start Streaming**.
 
 You can also open `index.html` directly in your browser, but the Dockerized frontend is the recommended option.
@@ -52,9 +52,9 @@ This platform is fully ready to be deployed to a VPS (Virtual Private Server) li
 
 1. Clone this repository onto your cloud server.
 2. Run `docker compose up -d --build` on the server.
-3. **Connecting OBS:** From your local broadcasting computer, open OBS Studio. Instead of `127.0.0.1`, point the RTMP Server URL to your cloud server's Public IP Address:
-   - **Server:** `rtmp://<YOUR_SERVER_PUBLIC_IP>/live`
-   - **Stream Key:** `test`
+3. **Connecting OBS:** From your local broadcasting computer, open OBS Studio. Instead of `127.0.0.1`, point the Server URL to your cloud server's Public IP Address using SRT:
+   - **Server:** `srt://<YOUR_SERVER_PUBLIC_IP>:1935?streamid=YOUR_STREAM_KEY` *(replace YOUR_STREAM_KEY with the value in your .env file)*
+   - **Stream Key:** *(Leave this blank!)*
 4. **Viewers:** Users can watch the stream by visiting `http://<YOUR_SERVER_PUBLIC_IP>:3000`.
 
 *Note: The frontend code (`index.html`) automatically detects the host IP, so no code changes are required to the WebSocket or HLS URLs when deploying!*
@@ -78,9 +78,9 @@ Continuous API polling is unstable and can easily break data updates.
 ### 3. Handling Network Instability
 Poor network conditions on the viewer side can cause packet loss, jitter, and video interruption.
 - **Adaptive Bitrate Streaming (ABR)**: The cloud system generates multiple video streams at different resolutions (1080p, 720p, 480p). The client-side player continuously measures the real bandwidth and smoothly switches between streams to avoid buffering.
-- **Resilient transport protocol**: Instead of RTMP, use SRT (Secure Reliable Transport) for the stream uplink from the stadium to the cloud. SRT handles packet loss and jitter much better.
+- **Resilient transport protocol**: Use SRT (Secure Reliable Transport) for the stream uplink from the stadium to the cloud. SRT handles packet loss and jitter much better than traditional RTMP, ensuring a more stable stream even over unreliable networks.
 
-**How we solved it:** We implemented Adaptive Bitrate Streaming (ABR) using an FFmpeg transcoder. When the stadium pushes the RTMP stream, our transcoder dynamically generates three separate HLS playlists at different quality levels (1080p, 720p, and 480p). The frontend video player (`hls.js`) reads the newly generated `master.m3u8` playlist, measures the viewer's internet speed in real-time, and seamlessly switches between quality tiers to prevent buffering on poor connections.
+**How we solved it:** We use SRT (Secure Reliable Transport) for the stream uplink from the stadium to the cloud. OBS broadcasts the stream via UDP to our FFmpeg SRT Listener, ensuring incredible stability on bad networks. Simultaneously, the transcoder dynamically generates three separate HLS playlists at different quality levels (1080p, 720p, and 480p). The frontend video player (`hls.js`) reads the newly generated `master.m3u8` playlist, measures the viewer's internet speed in real-time, and seamlessly switches between quality tiers to prevent buffering on poor connections.
 
 ### 4. Synchronizing Score and Video
 Scores update faster than video, which can spoil the result before viewers see the event on screen.

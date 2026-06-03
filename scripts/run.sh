@@ -1,71 +1,34 @@
 #!/bin/sh
-set -e
 
-# Simple ffmpeg-based transcoder that reads an RTMP source and writes multi-bitrate HLS
-# The container expects env vars: INPUT_URL and OUTPUT_DIR (defaults set in compose)
-
-INPUT_URL=${INPUT_URL:-rtmp://rtmp-server/live/test}
+# FFmpeg-based transcoder that listens for an SRT connection and writes perfectly aligned multi-bitrate HLS.
+INPUT_URL=${INPUT_URL:-"srt://0.0.0.0:1935?mode=listener"}
 OUTPUT_DIR=${OUTPUT_DIR:-/var/www/hls}
 
-mkdir -p "$OUTPUT_DIR"
+echo "Initializing SRT Transcoder Pipeline..."
+mkdir -p "$OUTPUT_DIR/1080p" "$OUTPUT_DIR/720p" "$OUTPUT_DIR/480p"
 
-# Remove previous output to avoid stale files
-rm -rf "$OUTPUT_DIR"/*
+while true; do
+    echo "Waiting for OBS to connect via SRT on UDP Port 1935..."
+    
+    # Clean up old segments before a new stream starts
+    rm -f "$OUTPUT_DIR/master.m3u8"
+    rm -f "$OUTPUT_DIR"/*/*.ts "$OUTPUT_DIR"/*/*.m3u8
 
-# Variant directories
-OUT1080="$OUTPUT_DIR/1080p"
-OUT720="$OUTPUT_DIR/720p"
-OUT480="$OUTPUT_DIR/480p"
-
-mkdir -p "$OUT1080" "$OUT720" "$OUT480"
-
-# Start three ffmpeg processes (one per rendition). Simple and robust for a prototype.
-echo "Starting 1080p ffmpeg..."
-(
-ffmpeg -hide_banner -y -i "$INPUT_URL" \
-  -c:v libx264 -b:v 3500k -s 1920x1080 -preset veryfast -g 48 -keyint_min 48 -bf 2 -maxrate 3850k -bufsize 7000k -profile:v high -x264-params "nal-hrd=cbr" \
-  -c:a aac -b:a 128k \
-  -f hls -hls_time 2 -hls_list_size 6 -hls_flags delete_segments+program_date_time \
-  -hls_segment_filename "$OUT1080/seg_%03d.ts" "$OUT1080/stream.m3u8"
-) &
-pid1=$!
-
-echo "Starting 720p ffmpeg..."
-(
-ffmpeg -hide_banner -y -i "$INPUT_URL" \
-  -c:v libx264 -b:v 1800k -s 1280x720 -preset veryfast -g 48 -keyint_min 48 -bf 2 -maxrate 2100k -bufsize 4200k -profile:v main -x264-params "nal-hrd=cbr" \
-  -c:a aac -b:a 128k \
-  -f hls -hls_time 2 -hls_list_size 6 -hls_flags delete_segments+program_date_time \
-  -hls_segment_filename "$OUT720/seg_%03d.ts" "$OUT720/stream.m3u8"
-) &
-pid2=$!
-
-echo "Starting 480p ffmpeg..."
-(
-ffmpeg -hide_banner -y -i "$INPUT_URL" \
-  -c:v libx264 -b:v 800k -s 854x480 -preset veryfast -g 48 -keyint_min 48 -bf 2 -maxrate 920k -bufsize 1600k -profile:v baseline -x264-params "nal-hrd=cbr" \
-  -c:a aac -b:a 128k \
-  -f hls -hls_time 2 -hls_list_size 6 -hls_flags delete_segments+program_date_time \
-  -hls_segment_filename "$OUT480/seg_%03d.ts" "$OUT480/stream.m3u8"
-) &
-pid3=$!
-
-# Create master playlist (references variant playlists)
-cat > "$OUTPUT_DIR/master.m3u8" <<EOF
-#EXTM3U
-#EXT-X-VERSION:3
-# 1080p
-#EXT-X-STREAM-INF:BANDWIDTH=3850000,RESOLUTION=1920x1080
-1080p/stream.m3u8
-# 720p
-#EXT-X-STREAM-INF:BANDWIDTH=2100000,RESOLUTION=1280x720
-720p/stream.m3u8
-# 480p
-#EXT-X-STREAM-INF:BANDWIDTH=920000,RESOLUTION=854x480
-480p/stream.m3u8
-EOF
-
-echo "Transcoder started; pids: $pid1 $pid2 $pid3"
-
-# Wait for ffmpeg processes
-wait $pid1 $pid2 $pid3
+    # Single FFmpeg process decodes once and outputs perfectly aligned ABR streams
+    ffmpeg -hide_banner -y -i "$INPUT_URL" \
+      -filter_complex "[0:v]split=3[v1][v2][v3]; [v1]scale=1920:1080[v1out]; [v2]scale=1280:720[v2out]; [v3]scale=854:480[v3out]" \
+      -map "[v1out]" -c:v:0 libx264 -b:v:0 3500k -maxrate:v:0 3850k -bufsize:v:0 7000k -preset veryfast -g 48 -keyint_min 48 -profile:v high -x264-params "nal-hrd=cbr" \
+      -map "[v2out]" -c:v:1 libx264 -b:v:1 1800k -maxrate:v:1 2100k -bufsize:v:1 4200k -preset veryfast -g 48 -keyint_min 48 -profile:v main -x264-params "nal-hrd=cbr" \
+      -map "[v3out]" -c:v:2 libx264 -b:v:2 800k -maxrate:v:2 920k -bufsize:v:2 1600k -preset veryfast -g 48 -keyint_min 48 -profile:v baseline -x264-params "nal-hrd=cbr" \
+      -map a:0 -c:a:0 aac -b:a:0 128k \
+      -map a:0 -c:a:1 aac -b:a:1 128k \
+      -map a:0 -c:a:2 aac -b:a:2 128k \
+      -f hls -hls_time 2 -hls_list_size 6 -hls_flags delete_segments+program_date_time \
+      -var_stream_map "v:0,a:0,name:1080p v:1,a:1,name:720p v:2,a:2,name:480p" \
+      -master_pl_name master.m3u8 \
+      -hls_segment_filename "$OUTPUT_DIR/%v/seg_%03d.ts" \
+      "$OUTPUT_DIR/%v/stream.m3u8"
+      
+    echo "Stream disconnected. Restarting SRT listener in 2 seconds..."
+    sleep 2
+done

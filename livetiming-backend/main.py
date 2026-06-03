@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Response, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import uvicorn
@@ -6,6 +6,9 @@ import asyncio
 import os
 from pathlib import Path
 import time
+
+STREAM_KEY = os.getenv("STREAM_KEY")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
 
 app = FastAPI(title="Live Score Admin API")
 
@@ -117,24 +120,28 @@ async def start_watcher():
     # start background file watcher
     asyncio.create_task(_file_watcher_loop())
 
-@app.post("/admin/score")
-async def trigger_goal(event: ScoreEvent):
-    """
-    API dành cho Admin để báo sự kiện Ghi Bàn.
-    Khi gọi API này, toàn bộ client đang kết nối WebSocket sẽ nhận được tỷ số mới.
-    """
-    payload = {
-        "event_timestamp": time.time() * 1000,
-        "team": event.team,
-        "score": event.score,
-        "delay": event.delay,
-        "action": event.action,
-    }
-    # persist last event
-    global last_event
-    last_event = payload
-    await manager.broadcast(payload)
-    return {"status": "success", "message": "Đã bắn sự kiện cập nhật tỷ số tới toàn bộ người xem!", "data": payload}
+@app.websocket("/ws/admin")
+async def websocket_admin_endpoint(websocket: WebSocket, password: str = Query(None)):
+    if not ADMIN_PASSWORD or not password or password != ADMIN_PASSWORD:
+        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+        return
+
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_json()
+            payload = {
+                "event_timestamp": time.time() * 1000,
+                "team": data.get("team"),
+                "score": data.get("score"),
+                "delay": data.get("delay", 10),
+                "action": data.get("action", "goal"),
+            }
+            global last_event
+            last_event = payload
+            await manager.broadcast(payload)
+    except WebSocketDisconnect:
+        pass
 
 
 @app.get('/admin/last')

@@ -196,7 +196,19 @@
     </style>
 </head>
 <body>
-    <main class="app">
+    <!-- Login Section -->
+    <div id="login-section" class="app" style="max-width: 400px; margin: 100px auto;">
+        <h1 style="text-align: center;">Admin Login</h1>
+        <p class="subtitle" style="text-align: center;">Enter password to access the console.</p>
+        <div class="field" style="margin-bottom: 16px;">
+            <input id="password-input" type="password" placeholder="Password" style="width: 100%; text-align: center;" />
+        </div>
+        <button id="login-btn" class="goal" style="width: 100%;">Connect</button>
+        <div id="login-error" class="hint" style="color: var(--danger); margin-top: 12px; display: none; text-align: center;"></div>
+    </div>
+
+    <!-- Control Section (Hidden by default) -->
+    <main id="control-section" class="app" style="display: none;">
         <h1>Score Admin Console</h1>
         <p class="subtitle">Admin console — use this page to send live score updates. The viewer page is read-only.</p>
 
@@ -236,7 +248,7 @@
         </div>
 
         <p class="hint">
-            This page sends POST requests to /admin/score on port 8000. The viewer page receives updates over WebSocket.
+            This page connects via secure WebSocket to /ws/admin. The viewer page receives updates over /ws.
         </p>
     </main>
 
@@ -248,9 +260,11 @@
         const scoreBEl = document.getElementById("scoreB");
         const delayEl = document.getElementById("delay");
 
-        const host = window.location.hostname || "localhost";
-        const protocol = window.location.protocol === "https:" ? "https:" : "http:";
-        const apiBase = `${protocol}//${host}:8000`;
+        const host = window.location.host; // Automatically gets domain + port
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const apiHost = host;
+        
+        let ws = null;
         let lastSentScore = null;
 
         // Restore persisted admin state so refresh doesn't lose current inputs
@@ -283,6 +297,44 @@
 
         [teamAEl, teamBEl, scoreAEl, scoreBEl, delayEl].forEach(el => el.addEventListener('input', saveAdminState));
 
+        // --- Login & WebSocket Logic ---
+        const loginBtn = document.getElementById("login-btn");
+        const passwordInput = document.getElementById("password-input");
+        const loginError = document.getElementById("login-error");
+        const loginSection = document.getElementById("login-section");
+        const controlSection = document.getElementById("control-section");
+
+        loginBtn.addEventListener("click", () => {
+            const pwd = passwordInput.value;
+            if (!pwd) {
+                loginError.textContent = "Please enter a password.";
+                loginError.style.display = "block";
+                return;
+            }
+            
+            loginError.style.display = "none";
+            loginBtn.textContent = "Connecting...";
+
+            ws = new WebSocket(`${wsProtocol}//${apiHost}/ws/admin?password=${encodeURIComponent(pwd)}`);
+
+            ws.onopen = () => {
+                loginSection.style.display = "none";
+                controlSection.style.display = "block";
+                setStatus("Connected securely to score server.", "ok");
+            };
+
+            ws.onclose = () => {
+                loginSection.style.display = "block";
+                controlSection.style.display = "none";
+                loginBtn.textContent = "Connect";
+                loginError.textContent = "Connection failed. Incorrect password.";
+                loginError.style.display = "block";
+                ws = null;
+            };
+        });
+
+        passwordInput.addEventListener("keypress", (e) => { if (e.key === "Enter") loginBtn.click(); });
+
         function setStatus(message, type = "") {
             statusEl.textContent = message;
             statusEl.className = `status ${type}`.trim();
@@ -304,16 +356,11 @@
             try {
                 setStatus("Sending update...");
 
-                const res = await fetch(`${apiBase}/admin/score`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                });
-
-                if (!res.ok) {
-                    const text = await res.text();
-                    throw new Error(`HTTP ${res.status}: ${text}`);
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    throw new Error("WebSocket not connected. Please refresh and log in.");
                 }
+                
+                ws.send(JSON.stringify(payload));
 
                 lastSentScore = payload.score;
                 saveAdminState();
@@ -351,8 +398,7 @@
 
         // Live-reload socket: reload admin UI when files change
         try {
-            const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const reloadWs = new WebSocket(`${wsProtocol}//${host}:8000/ws/reload`);
+            const reloadWs = new WebSocket(`${wsProtocol}//${apiHost}/ws/reload`);
             const applyStylesFromHTML = async (htmlText) => {
                 try {
                     const parser = new DOMParser();

@@ -335,14 +335,12 @@
         // ==========================================
         // CONFIGURATION (Supports Port Forwarding & Tunnels)
         // ==========================================
-        const urlParams = new URLSearchParams(window.location.search);
-        const host = window.location.hostname || 'localhost';
+        const host = window.location.host; // Automatically gets domain + port
         const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const httpProtocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
         
-        // Allows overriding backend/video endpoints via URL when using tunneling services like Ngrok
-        const apiHost = urlParams.get('api') || `${host}:8000`;
-        const videoSrc = urlParams.get('hls') || `${httpProtocol}//${host}:3000/hls/master.m3u8`;
+        const apiHost = host;
+        const videoSrc = `${httpProtocol}//${host}/hls/master.m3u8`;
 
         // ==========================================
         // PART 1: DOM INTERACTION & EVENT QUEUE

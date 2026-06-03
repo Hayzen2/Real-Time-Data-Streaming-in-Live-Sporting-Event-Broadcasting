@@ -1,0 +1,5 @@
+version: "2"
+tunnels:
+  livestream:
+    proto: http
+    addr: frontend:80
