@@ -398,19 +398,52 @@
                 liveMaxLatencyDurationCount: 4, 
                 maxLiveSyncPlaybackRate: 1.5 
             });
-            hlsInstance.loadSource(videoSrc);
-            hlsInstance.attachMedia(video);
+            
             hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
                 console.log("Video stream ready");
                 video.play().catch(e => console.log(e));
             });
+
+            // Auto-reconnect logic for HLS.js
+            hlsInstance.on(Hls.Events.ERROR, function (event, data) {
+                if (data.fatal) {
+                    switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            console.log("Network error (stream might be offline). Retrying in 3 seconds...");
+                            setTimeout(() => hlsInstance.loadSource(videoSrc), 3000);
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            console.log("Media error encountered. Attempting to recover...");
+                            hlsInstance.recoverMediaError();
+                            break;
+                        default:
+                            hlsInstance.destroy();
+                            break;
+                    }
+                }
+            });
+
+            hlsInstance.loadSource(videoSrc);
+            hlsInstance.attachMedia(video);
         } 
         // For Safari (native m3u8 support)
         else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = videoSrc;
+            const loadNativeStream = () => {
+                video.src = videoSrc;
+                video.load();
+            };
+            
             video.addEventListener('loadedmetadata', function() {
-                video.play();
+                video.play().catch(e => console.log(e));
             });
+
+            // Auto-reconnect logic for Safari native player
+            video.addEventListener('error', function() {
+                console.log("Native player error (stream might be offline). Retrying in 3 seconds...");
+                setTimeout(loadNativeStream, 3000);
+            });
+
+            loadNativeStream();
         }
 
         // ==========================================

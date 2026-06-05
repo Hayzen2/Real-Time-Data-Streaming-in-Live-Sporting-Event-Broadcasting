@@ -104,3 +104,4 @@ Scores update faster than video, which can spoil the result before viewers see t
 - Improve the transcoding pipeline with hardware acceleration (NVENC/VAAPI) for production-grade performance and lower CPU utilization.
 - Package the frontend assets into a more robust framework (React/Vue) for easier state management of complex match data.
 - Introduce LL-HLS (fMP4 + chunked transfer) to further push the HLS latency bounds down towards 2 seconds.
+- **Dedicated Cloud Infrastructure:** This current demo relies entirely on free-tier tunneling services (Pinggy/Playit) which impose bandwidth and session limits. A production deployment would migrate these components to a dedicated cloud VPS for stable, 24/7 broadcasting without restrictions.
