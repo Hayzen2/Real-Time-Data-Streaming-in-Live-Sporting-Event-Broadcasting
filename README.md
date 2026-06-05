@@ -79,12 +79,12 @@ This problem comes from encoding, network transmission, and cloud processing.
 
 **How we solved it:** Standard HLS streaming usually introduces a 15–30 second delay. To solve this, we heavily optimized our HLS configuration. We configured the FFmpeg transcoder to generate very short, 2-second video chunks (`-hls_time 2`). On the frontend, we configured `hls.js` with aggressive Live Sync rules (`liveSyncDurationCount: 2` and `maxLiveSyncPlaybackRate: 1.5`) to force the player to continuously stay as close to the "live edge" as possible. This brings the end-to-end latency down to a highly competitive 4–6 seconds. *(For future sub-second latency, the HLS delivery pipeline could be replaced with a WebRTC SFU).*
 
-### 2. Solving API Rate Limit and Quota Bottlenecks
-Continuous API polling is unstable and can easily break data updates.
-- **Backend-for-Frontend layer (BFF)**: Avoid having client devices call the sports API directly. Build an intermediate server that calls the API at allowed intervals and stores the results in a cache layer such as Redis.
-- **WebSocket push architecture**: From that intermediate server, use high-performance asynchronous frameworks such as FastAPI together with WebSockets to actively push the latest score data to thousands of clients at the same time, removing pressure from the API provider.
+### 2. Solving API Rate Limits, Quota Bottlenecks, and Data Loss
+Continuous API polling is unstable, and relying solely on in-memory backend states risks data loss during server restarts or crashes.
+- **WebSocket push architecture**: Avoid having client devices poll APIs directly. Use FastAPI with WebSockets to actively push the latest score data to thousands of clients instantly.
+- **Redis State Persistence**: Introduce Redis as a state store to prevent data loss and ensure fault tolerance during backend crashes.
 
-**How we solved it:** We built a custom FastAPI backend utilizing WebSockets. Instead of having thousands of viewers constantly polling an external sports API for score updates, viewers maintain a persistent, low-resource WebSocket connection. The backend acts as the single source of truth and actively pushes goal events (`{"type": "goal"}`) out to all clients exactly when they happen. This completely eliminates API rate limiting issues.
+**How we solved it:** We built a custom FastAPI backend utilizing WebSockets. Instead of thousands of viewers polling an external API, they maintain a lightweight WebSocket connection. To prevent data loss, we integrated **Redis**. When a goal is scored, the backend saves the state directly to Redis. If the backend server ever crashes or restarts, it instantly recovers the current score from Redis, ensuring no data is lost. This eliminates API limits and guarantees perfect fault tolerance.
 
 ### 3. Handling Network Instability
 Poor network conditions on the viewer side can cause packet loss, jitter, and video interruption.

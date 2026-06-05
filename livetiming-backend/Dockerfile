@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Initialize virtual environment and install required libraries
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt redis
 
 # Copy the entire backend source code into the container
 COPY . .

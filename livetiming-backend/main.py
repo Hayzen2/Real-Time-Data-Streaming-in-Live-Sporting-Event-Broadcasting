@@ -6,9 +6,13 @@ import asyncio
 import os
 from pathlib import Path
 import time
+import json
+import redis.asyncio as redis
 
 STREAM_KEY = os.getenv("STREAM_KEY")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/0")
+redis_client = None
 
 app = FastAPI(title="Live Score Admin API")
 
@@ -41,9 +45,6 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-# Keep last broadcasted event so viewers can query current score on connect
-last_event = None
-
 # Separate manager for reload/live-edit notifications
 reload_manager = ConnectionManager()
 
@@ -58,8 +59,9 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         # Push the latest event immediately upon connection so new viewers see it
-        if last_event:
-            await websocket.send_json(last_event)
+        last_event_str = await redis_client.get("last_event")
+        if last_event_str:
+            await websocket.send_json(json.loads(last_event_str))
             
         # Standby mode: Client only receives, doesn't send anything to server (Keep-alive)
         while True:
@@ -119,10 +121,26 @@ async def _file_watcher_loop():
         await asyncio.sleep(1.0)
 
 
+async def redis_listener():
+    """Listen for score updates broadcasted by other instances via Redis Pub/Sub"""
+    pubsub = redis_client.pubsub()
+    await pubsub.subscribe("score_updates")
+    async for message in pubsub.listen():
+        if message["type"] == "message":
+            data = json.loads(message["data"])
+            await manager.broadcast(data)
+
 @app.on_event("startup")
-async def start_watcher():
-    # start background file watcher
+async def startup_event():
+    global redis_client
+    redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+    asyncio.create_task(redis_listener())
     asyncio.create_task(_file_watcher_loop())
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    if redis_client:
+        await redis_client.close()
 
 @app.websocket("/ws/admin")
 async def websocket_admin_endpoint(websocket: WebSocket, password: str = Query(None)):
@@ -141,9 +159,11 @@ async def websocket_admin_endpoint(websocket: WebSocket, password: str = Query(N
                 "delay": data.get("delay", 10),
                 "action": data.get("action", "goal"),
             }
-            global last_event
-            last_event = payload
-            await manager.broadcast(payload)
+            
+            # Save to Redis so it survives container crashes
+            await redis_client.set("last_event", json.dumps(payload))
+            # Publish to Redis so ALL backend containers broadcast it to their viewers
+            await redis_client.publish("score_updates", json.dumps(payload))
     except WebSocketDisconnect:
         pass
 
@@ -151,9 +171,10 @@ async def websocket_admin_endpoint(websocket: WebSocket, password: str = Query(N
 @app.get('/admin/last')
 async def get_last_event():
     """Return the last broadcasted score event or 204 if none."""
-    if last_event is None:
+    last_event_str = await redis_client.get("last_event")
+    if last_event_str is None:
         return Response(status_code=204)
-    return last_event
+    return json.loads(last_event_str)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
